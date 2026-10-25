@@ -1,0 +1,15 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:mealmate-test;MODE=MySQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+
+mealmate:
+  jwt:
+    secret: test-secret-test-secret-test-secret-1234
+  admin:
+    email: admin@test.dev
+    password: adminpass123
