@@ -7,15 +7,9 @@ A full-stack food ordering platform: browse a menu, build a cart, place an order
 ![React](https://img.shields.io/badge/React-18-20232A?logo=react&logoColor=61DAFB)
 ![MySQL](https://img.shields.io/badge/MySQL-8-4479A1?logo=mysql&logoColor=white)
 ![Stripe](https://img.shields.io/badge/Stripe-payments-635BFF?logo=stripe&logoColor=white)
+![CI](https://github.com/ramya036/mealmate/actions/workflows/ci.yml/badge.svg)
 
-```
-React (Vite) ──JWT──▶ Spring Boot REST API ──JPA──▶ MySQL
-     │                        │
-     │  Stripe Elements       │  PaymentIntent (idempotent)
-     └────────▶ Stripe ◀──────┘
-                  │
-                  └── webhook (signature verified) ──▶ order marked PAID
-```
+![MealMate menu with categories and add-to-cart buttons](docs/menu.png)
 
 ## Features
 
@@ -27,9 +21,22 @@ React (Vite) ──JWT──▶ Spring Boot REST API ──JPA──▶ MySQL
 - **Price snapshots:** order lines store the price at order time, so menu edits don't rewrite history.
 - Validation and consistent JSON error responses, optimistic locking on orders, integration tests with MockMvc.
 
+## How it works
+
+```
+React (Vite) ──JWT──▶ Spring Boot REST API ──JPA──▶ MySQL
+     │                        │
+     │  Stripe Elements       │  PaymentIntent (idempotent)
+     └────────▶ Stripe ◀──────┘
+                  │
+                  └── webhook (signature verified) ──▶ order marked PAID
+```
+
+The React front end talks to a stateless Spring Boot REST API using a JWT on each request. Orders are priced on the server from the database. Checkout creates a Stripe PaymentIntent with an idempotency key, and the order only becomes `PAID` when Stripe's signed webhook arrives. The payment provider sits behind a `PaymentGateway` interface, so tests replace Stripe with a mock.
+
 ## Run it
 
-### Option 1: quickest (no MySQL, no Stripe)
+**Option 1: quickest (no MySQL, no Stripe)**
 
 ```bash
 # Backend with in-memory H2 database
@@ -46,7 +53,7 @@ Open http://localhost:5173. A sample menu is seeded automatically. Sign in as ad
 
 Without Stripe keys you can browse, order and manage orders; the checkout page will say payments aren't configured.
 
-### Option 2: full stack with Docker
+**Option 2: full stack with Docker**
 
 ```bash
 cp .env.example .env    # fill in JWT_SECRET, ADMIN_PASSWORD and Stripe test keys
@@ -55,7 +62,7 @@ docker compose up --build
 
 Open http://localhost:3000.
 
-### Enabling payments locally
+**Enabling payments locally**
 
 1. Get test keys from the [Stripe dashboard](https://dashboard.stripe.com/test/apikeys).
 2. Set `STRIPE_SECRET_KEY` for the backend and `VITE_STRIPE_PUBLISHABLE_KEY` in `frontend/.env`.
@@ -66,7 +73,7 @@ Open http://localhost:3000.
    Put the printed `whsec_...` value in `STRIPE_WEBHOOK_SECRET`.
 4. Pay with test card `4242 4242 4242 4242`, any future date, any CVC.
 
-## API
+**API**
 
 | Method | Endpoint | Access | Description |
 |---|---|---|---|
@@ -83,24 +90,6 @@ Open http://localhost:3000.
 | PATCH | `/api/admin/orders/{id}/status` | admin | Advance order status |
 | POST | `/api/payments/webhook` | Stripe | Payment events (signature verified) |
 
-## Project structure
-
-```
-backend/src/main/java/com/ramya/mealmate/
-├── controller/   REST endpoints
-├── service/      Business logic (auth, menu, orders)
-├── payment/      PaymentGateway interface + Stripe implementation
-├── security/     JWT issuing/verification, filter, security config
-├── model/        JPA entities
-├── repository/   Spring Data repositories
-├── dto/          Request/response records
-└── exception/    Error handling
-frontend/src/
-├── pages/        Menu, Cart, Auth, Orders, Checkout, Admin
-├── state.jsx     Session + cart state (React Context + useReducer)
-└── api.js        Fetch wrapper that attaches the JWT
-```
-
 ## Tests
 
 ```bash
@@ -108,4 +97,20 @@ cd backend
 mvn test
 ```
 
-The integration tests run against H2 with Stripe mocked, covering auth, role checks, order ownership, server-side totals, checkout, webhook handling and status transitions.
+9 integration tests run the real Spring Boot app against an in-memory H2 database with Stripe mocked. They cover sign-up and login, role checks, customers only seeing their own orders, server-side totals, checkout, signed and replayed webhooks, and order status rules. GitHub Actions runs them plus a production build of the front end on every push.
+
+## Project structure
+
+| Folder | Description |
+|---|---|
+| `backend/.../controller/` | REST endpoints |
+| `backend/.../service/` | Business logic for auth, menu and orders |
+| `backend/.../payment/` | `PaymentGateway` interface and the Stripe implementation |
+| `backend/.../security/` | JWT issuing and checking, request filter, security config |
+| `backend/.../model/`, `repository/`, `dto/` | JPA entities, Spring Data repositories, request and response records |
+| `backend/src/test/` | Integration tests |
+| `frontend/src/pages/` | Menu, cart, sign-in, orders, checkout and admin pages |
+| `frontend/src/state.jsx`, `api.js` | Session and cart state, and the fetch wrapper that attaches the JWT |
+| `docs/` | Screenshots |
+
+`backend/...` is short for `backend/src/main/java/com/ramya/mealmate`.
